@@ -37,11 +37,17 @@ const Pengaturan: React.FC = () => {
   
   // Load Supabase config from localStorage or constants
   useEffect(() => {
-    const storedSbUrl = SUPABASE_URL || localStorage.getItem('supabase_url') || '';
-    const storedSbKey = SUPABASE_KEY || localStorage.getItem('supabase_key') || '';
-    setSbUrl(storedSbUrl);
-    setSbKey(storedSbKey);
-  }, []);
+    // Jika Hardcoded, paksa pakai Env Var
+    if (isHardcodedSb) {
+        setSbUrl(SUPABASE_URL);
+        setSbKey(SUPABASE_KEY);
+    } else {
+        const storedSbUrl = localStorage.getItem('supabase_url') || '';
+        const storedSbKey = localStorage.getItem('supabase_key') || '';
+        setSbUrl(storedSbUrl);
+        setSbKey(storedSbKey);
+    }
+  }, [isHardcodedSb]);
 
   const handleChange = (field: keyof SchoolSettings, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -424,11 +430,11 @@ const Pengaturan: React.FC = () => {
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                 <div className="flex justify-between items-start mb-4">
                     <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Flame size={20} className="text-orange-500"/> Koneksi Database</h2>
-                    {isHardcodedSb && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold flex items-center gap-1"><Lock size={10}/> Config File</span>}
+                    {isHardcodedSb && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold flex items-center gap-1"><Lock size={10}/> Vercel Config</span>}
                 </div>
                 
-                {isDbConfigured ? (
-                     // TAMPILAN SUKSES DATABASE
+                {isHardcodedSb ? (
+                     // TAMPILAN SUKSES DATABASE (Hardcoded/Env Var)
                      <div className="bg-green-50 p-5 rounded-xl border border-green-200 text-green-800 flex flex-col gap-3">
                         <div className="flex items-center gap-3">
                              <div className="bg-green-100 p-2 rounded-full text-green-600">
@@ -436,21 +442,34 @@ const Pengaturan: React.FC = () => {
                              </div>
                              <div>
                                  <h3 className="font-bold text-lg">Database Terhubung</h3>
-                                 <p className="text-xs text-green-700">Status: Online</p>
+                                 <p className="text-xs text-green-700">Mode: Environment Variable (Vercel)</p>
                              </div>
                         </div>
-                        
-                        {!isHardcodedSb && (
-                            <div className="mt-2 border-t border-green-200 pt-3 flex justify-between items-center">
-                                <span className="text-xs text-green-600">Ingin mengganti database?</span>
-                                <button 
-                                    onClick={handleClearData}
-                                    className="text-xs bg-white border border-green-300 px-3 py-1.5 rounded-lg font-bold text-green-700 hover:bg-green-50 shadow-sm"
-                                >
-                                    Putuskan / Ganti
-                                </button>
-                            </div>
-                        )}
+                        <p className="text-xs text-green-600 italic">
+                            Koneksi diatur melalui pengaturan Vercel dan terkunci demi keamanan.
+                        </p>
+                     </div>
+                ) : isDbConfigured ? (
+                    // TAMPILAN SUKSES DATABASE (Manual Input)
+                     <div className="bg-green-50 p-5 rounded-xl border border-green-200 text-green-800 flex flex-col gap-3">
+                        <div className="flex items-center gap-3">
+                             <div className="bg-green-100 p-2 rounded-full text-green-600">
+                                 <CheckCircle2 size={24} />
+                             </div>
+                             <div>
+                                 <h3 className="font-bold text-lg">Database Terhubung</h3>
+                                 <p className="text-xs text-green-700">Mode: Manual (Browser Storage)</p>
+                             </div>
+                        </div>
+                        <div className="mt-2 border-t border-green-200 pt-3 flex justify-between items-center">
+                            <span className="text-xs text-green-600">Ingin mengganti database?</span>
+                            <button 
+                                onClick={handleClearData}
+                                className="text-xs bg-white border border-green-300 px-3 py-1.5 rounded-lg font-bold text-green-700 hover:bg-green-50 shadow-sm"
+                            >
+                                Putuskan / Ganti
+                            </button>
+                        </div>
                      </div>
                 ) : (
                     // TAMPILAN INPUT DATABASE

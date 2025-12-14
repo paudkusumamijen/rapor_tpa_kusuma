@@ -1,39 +1,37 @@
 import { SchoolSettings, TPType } from './types';
 
-// Helper untuk membaca Env Var dengan aman (mendukung Vite, Create-React-App, dan Vercel)
-const getEnv = (key: string) => {
-  let val = "";
-  
-  // 1. Cek process.env (biasanya untuk Create-React-App atau Node env)
-  try {
-    // @ts-ignore
-    if (typeof process !== 'undefined' && process.env && process.env[key]) {
-        val = process.env[key];
+// Helper untuk membaca process.env (Node.js / Create-React-App fallback)
+const getProcessEnv = (key: string) => {
+    try {
+        // @ts-ignore
+        return typeof process !== 'undefined' ? process.env[key] : undefined;
+    } catch (e) {
+        return undefined;
     }
-  } catch (e) {}
-
-  if (val) return val;
-
-  // 2. Cek import.meta.env (standar Vite)
-  try {
-    // Menggunakan casting any untuk menghindari error TS pada property 'env'
-    const meta = import.meta as any;
-    if (typeof meta !== 'undefined' && meta.env && meta.env[key]) {
-        val = meta.env[key];
-    }
-  } catch (e) {}
-  
-  return val;
 };
 
 // --- KONFIGURASI DATABASE (SUPABASE) ---
-// Mendukung berbagai format penamaan agar kompatibel dengan Vercel Settings
-export const SUPABASE_URL = getEnv('VITE_SUPABASE_URL') || getEnv('REACT_APP_SUPABASE_URL') || getEnv('SUPABASE_URL') || ""; 
-export const SUPABASE_KEY = getEnv('VITE_SUPABASE_KEY') || getEnv('REACT_APP_SUPABASE_KEY') || getEnv('SUPABASE_KEY') || "";
+// PENTING: Di Vercel (Vite), kita WAJIB mengakses 'import.meta.env.VITE_...' secara LITERAl/LANGSUNG.
+// Jangan gunakan fungsi dinamis (seperti env[key]) karena Vite melakukan static replacement saat build.
+
+export const SUPABASE_URL = 
+    // @ts-ignore
+    (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_SUPABASE_URL) || 
+    getProcessEnv('VITE_SUPABASE_URL') || 
+    ""; 
+
+export const SUPABASE_KEY = 
+    // @ts-ignore
+    (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_SUPABASE_KEY) || 
+    getProcessEnv('VITE_SUPABASE_KEY') || 
+    "";
 
 // --- KONFIGURASI AI (GEMINI) ---
-// Mengambil API Key dari environment variable (Vercel)
-export const GEMINI_API_KEY = getEnv('VITE_API_KEY') || getEnv('REACT_APP_API_KEY') || getEnv('API_KEY') || ""; 
+export const GEMINI_API_KEY = 
+    // @ts-ignore
+    (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) || 
+    getProcessEnv('VITE_API_KEY') || 
+    ""; 
 
 // --- KONFIGURASI ASET ---
 export const DEFAULT_LOGO_URL = "https://wohhrumqbuwhfulhrlfy.supabase.co/storage/v1/object/public/images/Logo%20Kusuma-new1.png";
