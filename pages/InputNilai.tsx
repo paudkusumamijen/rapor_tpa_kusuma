@@ -8,11 +8,8 @@ import { Save, Loader2, Sparkles, Filter, Edit3 } from 'lucide-react';
 // Fungsi helper untuk membersihkan tag HTML dari data lama (hasil Quill) agar rapi di Textarea
 const cleanHtml = (html: string) => {
     if (!html) return "";
-    // Ganti paragraf dan break line dengan newline
     let text = html.replace(/<\/p>/gi, '\n').replace(/<br\s*\/?>/gi, '\n');
-    // Hapus semua tag HTML lainnya
     text = text.replace(/<[^>]+>/g, '');
-    // Decode entitas HTML dasar
     text = text.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
     return text.trim();
 };
@@ -20,31 +17,41 @@ const cleanHtml = (html: string) => {
 const InputNilai: React.FC = () => {
   const { students, classes, tps, assessments, categoryResults, upsertAssessment, upsertCategoryResult, settings } = useApp();
   
+  // Use Dynamic Categories from Settings
+  const activeCategories = settings.assessmentCategories && settings.assessmentCategories.length > 0 
+    ? settings.assessmentCategories 
+    : TP_CATEGORIES;
+
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
-  const [activeCategory, setActiveCategory] = useState<TPType>(TPType.QURAN);
   
+  // State Active Category (String)
+  const [activeCategory, setActiveCategory] = useState<string>(activeCategories[0] || TPType.QURAN);
+  
+  // Update activeCategory jika list kategori berubah (misal setelah edit di settings)
+  useEffect(() => {
+      if (!activeCategories.includes(activeCategory)) {
+          setActiveCategory(activeCategories[0] || '');
+      }
+  }, [activeCategories]);
+
   // State Lokal untuk menampung nilai sementara sebelum disimpan
   const [tempScores, setTempScores] = useState<Record<string, AssessmentLevel>>({});
   
-  // State untuk Deskripsi Per Kategori
   const [teacherKeywords, setTeacherKeywords] = useState('');
   const [finalDescription, setFinalDescription] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Filter students
   const filteredStudents = selectedClassId 
     ? students.filter(s => String(s.classId) === String(selectedClassId)) 
     : [];
 
   const selectedStudent = students.find(s => String(s.id) === String(selectedStudentId));
   
-  // Filter TPs based on student's class ID and active category
   const categoryTps = selectedStudent 
     ? tps.filter(t => t.category === activeCategory && String(t.classId) === String(selectedStudent.classId))
     : [];
 
-  // Load Data saat Siswa/Kategori berubah
   useEffect(() => {
     if (selectedStudentId && activeCategory) {
         // 1. Load Scores (Assessments)
@@ -59,7 +66,6 @@ const InputNilai: React.FC = () => {
         const res = categoryResults.find(r => String(r.studentId) === String(selectedStudentId) && r.category === activeCategory);
         if (res) {
             setTeacherKeywords(res.teacherNote || '');
-            // Bersihkan HTML jika ada (migrasi dari editor lama)
             const desc = res.generatedDescription || '';
             setFinalDescription(desc.includes('<') ? cleanHtml(desc) : desc);
         } else {
@@ -76,9 +82,8 @@ const InputNilai: React.FC = () => {
   const handleGenerateAI = async () => {
     if (!selectedStudent) return;
     
-    // Kumpulkan data TP yang sudah dinilai
     const assessmentsPayload = categoryTps
-        .filter(tp => tempScores[tp.id]) // Hanya yang sudah ada nilai
+        .filter(tp => tempScores[tp.id]) 
         .map(tp => ({
             tp: tp.description,
             activity: tp.activity,
@@ -92,7 +97,6 @@ const InputNilai: React.FC = () => {
 
     setIsGenerating(true);
     try {
-        // UPDATED: Pass API Key and Provider from Settings
         const result = await generateCategoryDescription(
             selectedStudent.name,
             activeCategory,
@@ -112,7 +116,6 @@ const InputNilai: React.FC = () => {
   const handleGenerateTemplate = () => {
     if (!selectedStudent) return;
     
-    // Kumpulkan data TP yang sudah dinilai
     const assessmentsPayload = categoryTps
         .filter(tp => tempScores[tp.id]) 
         .map(tp => ({
@@ -126,7 +129,6 @@ const InputNilai: React.FC = () => {
         return;
     }
 
-    // Panggil Service Manual (Offline) dengan API Key kosong agar masuk mode offline
     import('../services/geminiService').then(module => {
         const result = module.generateTemplateDescription(selectedStudent.name, activeCategory, assessmentsPayload);
         setFinalDescription(result);
@@ -136,7 +138,6 @@ const InputNilai: React.FC = () => {
   const handleSaveAll = async () => {
       if (!selectedStudentId) return;
 
-      // 1. Simpan semua skor TP secara individual
       for (const tp of categoryTps) {
           const score = tempScores[tp.id];
           if (score) {
@@ -151,7 +152,6 @@ const InputNilai: React.FC = () => {
           }
       }
 
-      // 2. Simpan Deskripsi Kategori (CategoryResult)
       if (finalDescription) {
           await upsertCategoryResult({
               id: `${selectedStudentId}-${activeCategory}`,
@@ -171,7 +171,6 @@ const InputNilai: React.FC = () => {
     <div className="h-full flex flex-col">
       <h1 className="text-2xl font-bold text-slate-800 mb-4">Input Nilai & Deskripsi</h1>
 
-      {/* Filter Section */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -193,9 +192,9 @@ const InputNilai: React.FC = () => {
 
       {selectedStudentId ? (
         <div className="flex-1 flex flex-col">
-            {/* TABS KATEGORI */}
+            {/* DYNAMIC CATEGORY TABS */}
             <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-                {TP_CATEGORIES.map(cat => (
+                {activeCategories.map(cat => (
                     <button
                         key={cat}
                         onClick={() => setActiveCategory(cat)}
@@ -210,7 +209,6 @@ const InputNilai: React.FC = () => {
                 ))}
             </div>
 
-            {/* KONTEN INPUT PER KATEGORI */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex-1 overflow-auto">
                 <h2 className="text-xl font-bold text-slate-800 mb-4 pb-2 border-b">{activeCategory}</h2>
 
@@ -221,7 +219,6 @@ const InputNilai: React.FC = () => {
                     </div>
                 ) : (
                     <>
-                        {/* 1. TABLE PENILAIAN */}
                         <div className="overflow-x-auto mb-8 border rounded-lg">
                             <table className="w-full text-sm text-left">
                                 <thead className="bg-slate-100 text-slate-700 uppercase font-bold text-xs">
@@ -263,12 +260,9 @@ const InputNilai: React.FC = () => {
                             </table>
                         </div>
 
-                        {/* 2. GENERATOR AI & DESKRIPSI (TEXTAREA) */}
                         <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
                             <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Sparkles size={18} className="text-indigo-600"/> Susun Deskripsi Narasi</h3>
-                            
                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                                {/* KOLOM KIRI: INPUT AI */}
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-2">Kata Kunci / Catatan Guru (Opsional)</label>
                                     <textarea 
@@ -300,7 +294,6 @@ const InputNilai: React.FC = () => {
                                     )}
                                 </div>
 
-                                {/* KOLOM KANAN: DESKRIPSI TEXTAREA */}
                                 <div className="flex flex-col">
                                     <label className="block text-sm font-bold text-slate-700 mb-2">Deskripsi Rapor</label>
                                     <div className="flex-1">
@@ -316,7 +309,6 @@ const InputNilai: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* 3. SIMPAN */}
                         <div className="mt-6 flex justify-end border-t pt-4">
                             <button 
                                 onClick={handleSaveAll}

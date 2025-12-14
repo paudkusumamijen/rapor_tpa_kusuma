@@ -72,18 +72,24 @@ const mapKeys = (obj: any, mapper: (k: string) => string) => {
   }, {} as any);
 };
 
-// Helper: Unpack Logo JSON from legacy 'logo_url' column
-const unpackSettingsLogos = (settingsData: any) => {
+// Helper: Unpack Extended Settings (Logos & Categories) from legacy 'logo_url' column
+const unpackExtendedSettings = (settingsData: any) => {
   if (!settingsData) return null;
   const processed = { ...settingsData };
   
-  // Check if logoUrl contains JSON (delimiter for multiple logos)
+  // Check if logoUrl contains JSON (delimiter for multiple fields)
   if (processed.logoUrl && typeof processed.logoUrl === 'string' && processed.logoUrl.trim().startsWith('{')) {
       try {
           const parsed = JSON.parse(processed.logoUrl);
+          // Unpack Logos
           processed.logoUrl = parsed.default || ""; 
           processed.appLogoUrl = parsed.app;
           processed.reportLogoUrl = parsed.report;
+          
+          // Unpack Dynamic Categories
+          if (parsed.categories && Array.isArray(parsed.categories)) {
+              processed.assessmentCategories = parsed.categories;
+          }
       } catch (e) {
           // ignore parse error, treat as simple string
       }
@@ -106,7 +112,7 @@ export const sheetService = {
       const { data, error } = await sb.from('settings').select('*').limit(1).maybeSingle();
       if (error) throw error;
       const camelData = data ? mapKeys(data, toCamelCase) : null;
-      return unpackSettingsLogos(camelData);
+      return unpackExtendedSettings(camelData);
     } catch (error) {
       console.error("Settings Fetch Error:", error);
       return null;
@@ -149,7 +155,7 @@ export const sheetService = {
           reflectionAnswers: mapKeys(reflectionAnswers || [], toCamelCase),
           notes: mapKeys(notes || [], toCamelCase),
           attendance: mapKeys(attendance || [], toCamelCase),
-          settings: settings ? unpackSettingsLogos(mapKeys(settings, toCamelCase)) : undefined 
+          settings: settings ? unpackExtendedSettings(mapKeys(settings, toCamelCase)) : undefined 
       } as AppState;
 
     } catch (error: any) {
@@ -175,16 +181,22 @@ export const sheetService = {
   async saveSettings(data: any) {
     const payload = { ...data, id: 'global_settings' };
     
-    // Create JSON container for logos
-    const logoPackage = {
+    // Create JSON container for extended fields (logos, categories)
+    // This allows storing data without migrating the DB schema for new columns
+    const extendedPackage = {
         default: data.logoUrl,
         app: data.appLogoUrl,
-        report: data.reportLogoUrl
+        report: data.reportLogoUrl,
+        categories: data.assessmentCategories // Store dynamic categories here
     };
     
-    payload.logoUrl = JSON.stringify(logoPackage);
+    // Store package in logoUrl column (text/string)
+    payload.logoUrl = JSON.stringify(extendedPackage);
+    
+    // Delete fields that map to columns which might NOT exist in DB
     delete payload.appLogoUrl;
     delete payload.reportLogoUrl;
+    delete payload.assessmentCategories; // Prevent "column assessment_categories not found" error
 
     return this.supabaseOp('upsert', 'settings', payload);
   },
@@ -225,7 +237,7 @@ export const sheetService = {
 
           if (data.settings) {
               const settingsPayload = { ...data.settings, id: 'global_settings' };
-              await sb.from('settings').upsert(mapKeys(settingsPayload, toSnakeCase));
+              await this.saveSettings(settingsPayload); // Use saveSettings to handle packing
           }
 
           if (data.classes?.length) await sb.from('classes').upsert(mapKeys(data.classes, toSnakeCase));

@@ -5,7 +5,7 @@ export enum AssessmentLevel {
   MAHIR = 3
 }
 
-// UBAH KATEGORI UNTUK TPA
+// UBAH KATEGORI UNTUK TPA (Tetap disimpan sebagai konstanta default, tapi tipe data di object menggunakan string)
 export enum TPType {
   QURAN = 'Al-Qur\'an / Jilid',
   HAFALAN = 'Hafalan Surah & Doa',
@@ -55,7 +55,7 @@ export interface Student {
 export interface LearningObjective {
   id: string;
   classId: string; // NEW: Links to ClassData (TP is now specific to a class)
-  category: TPType;
+  category: string; // CHANGED: Now string to support dynamic categories
   description: string; // Materi / Target
   activity: string; // Metode
 }
@@ -165,6 +165,8 @@ export interface SchoolSettings {
   // AI CONFIGURATION (STORED IN DB)
   aiProvider?: 'gemini' | 'groq';
   aiApiKey?: string;
+  // DYNAMIC CATEGORIES
+  assessmentCategories?: string[]; // List of active TP Categories
 }
 
 export interface AppState {

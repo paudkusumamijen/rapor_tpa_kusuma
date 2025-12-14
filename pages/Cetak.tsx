@@ -9,14 +9,16 @@ const Cetak: React.FC = () => {
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   
-  // FIX: Pastikan ID dibandingkan sebagai String untuk menghindari mismatch tipe data (number vs string)
+  // Use Dynamic Categories from Settings
+  const activeCategories = settings.assessmentCategories && settings.assessmentCategories.length > 0 
+    ? settings.assessmentCategories 
+    : TP_CATEGORIES;
+  
   const selectedStudent = students.find(s => String(s.id) === String(selectedStudentId));
   const studentClass = classes.find(c => String(c.id) === String(selectedStudent?.classId));
 
-  // Gunakan Report Logo, fallback ke logo lama, fallback ke default
   const reportLogo = settings.reportLogoUrl || settings.logoUrl || DEFAULT_LOGO_URL;
 
-  // Filter Data for Selected Student
   const filteredStudents = selectedClassId 
     ? students.filter(s => String(s.classId) === String(selectedClassId))
     : [];
@@ -24,17 +26,12 @@ const Cetak: React.FC = () => {
   const studentNote = notes.find(n => String(n.studentId) === String(selectedStudentId));
   const studentAttendance = attendance.find(a => String(a.studentId) === String(selectedStudentId)) || { sick: 0, permission: 0, alpha: 0 };
 
-  // --- LOGIKA BARU P5: Hanya ambil kriteria kelas siswa YANG SUDAH DINILAI ---
   const studentP5Criteria = selectedStudent ? p5Criteria.filter(c => {
-      // 1. Cek apakah kriteria milik kelas siswa ini
       const isClassMatch = String(c.classId) === String(selectedStudent.classId);
-      
-      // 2. Cek apakah ada penilaian untuk kriteria ini
       const hasAssessment = p5Assessments.some(a => 
           String(a.studentId) === String(selectedStudentId) && 
           String(a.criteriaId) === String(c.id)
       );
-
       return isClassMatch && hasAssessment;
   }) : [];
 
@@ -46,7 +43,6 @@ const Cetak: React.FC = () => {
 
     const title = `Rapor - ${selectedStudent.name}`;
     
-    // Buka Tab Baru
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
         alert("Pop-up diblokir. Izinkan pop-up untuk mencetak.");
@@ -94,13 +90,12 @@ const Cetak: React.FC = () => {
                     page-break-after: auto; 
                 }
 
-                /* --- REPORT TABLE STYLES --- */
                 .report-table {
                     width: 100%;
                     border-collapse: separate;
                     border-spacing: 0;
                     border: 1px solid #000000;
-                    border-radius: 8px; /* Lengkungan sudut */
+                    border-radius: 8px;
                     overflow: hidden;
                     font-size: 11px;
                     margin-bottom: 0;
@@ -113,7 +108,7 @@ const Cetak: React.FC = () => {
                 }
 
                 .report-table th {
-                    background-color: #e2e8f0 !important; /* bg-slate-200 */
+                    background-color: #e2e8f0 !important;
                     color: #000000 !important;
                     font-weight: bold;
                     text-transform: uppercase;
@@ -121,7 +116,6 @@ const Cetak: React.FC = () => {
                     border-top: none;
                 }
 
-                /* Hilangkan border ganda pada sisi kanan dan bawah tabel */
                 .report-table th:last-child, 
                 .report-table td:last-child {
                     border-right: none;
@@ -131,7 +125,6 @@ const Cetak: React.FC = () => {
                     border-bottom: none;
                 }
 
-                /* Helper classes */
                 .text-justify { text-align: justify; }
                 .font-bold { font-weight: 700; }
                 .font-black { font-weight: 900; }
@@ -140,7 +133,6 @@ const Cetak: React.FC = () => {
                 
                 .no-border-table td, .no-border-table th { border: none !important; padding: 2px 4px; }
                 
-                /* Utilities for Badges (Print Safe) */
                 .bg-yellow-200 { background-color: #fef08a !important; } 
                 .bg-green-200 { background-color: #bbf7d0 !important; }  
                 .bg-blue-200 { background-color: #bfdbfe !important; }    
@@ -149,7 +141,6 @@ const Cetak: React.FC = () => {
                 .border-green-400 { border-color: #4ade80 !important; }
                 .border-blue-400 { border-color: #60a5fa !important; }
 
-                /* CSS for plain text description preserving whitespace */
                 .whitespace-pre-wrap {
                     white-space: pre-wrap;
                 }
@@ -158,7 +149,6 @@ const Cetak: React.FC = () => {
         <body>
             ${cleanHtml}
             <script>
-                // Tunggu sebentar agar gambar/font terload, lalu print
                 setTimeout(() => {
                     window.print();
                 }, 1000);
@@ -173,19 +163,19 @@ const Cetak: React.FC = () => {
 
   const getBadgeContent = (score: number) => {
       switch (score) {
-          case 1: // BERKEMBANG
+          case 1:
               return (
                   <span className="inline-block px-3 py-1 rounded-full bg-yellow-200 text-black border border-yellow-400 text-[9px] font-black tracking-wider uppercase shadow-sm whitespace-nowrap">
                       BERKEMBANG
                   </span>
               );
-          case 2: // CAKAP
+          case 2:
               return (
                   <span className="inline-block px-3 py-1 rounded-full bg-blue-200 text-black border border-blue-400 text-[9px] font-black tracking-wider uppercase shadow-sm whitespace-nowrap">
                       CAKAP
                   </span>
               );
-          case 3: // MAHIR
+          case 3:
               return (
                   <span className="inline-block px-3 py-1 rounded-full bg-green-200 text-black border border-green-400 text-[9px] font-black tracking-wider uppercase shadow-sm whitespace-nowrap">
                       MAHIR
@@ -198,7 +188,6 @@ const Cetak: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col">
-      {/* INJECT STYLES FOR PREVIEW CONSISTENCY */}
       <style>{`
         .report-table {
             width: 100%;
@@ -269,7 +258,6 @@ const Cetak: React.FC = () => {
       
       <div className="flex-1 bg-slate-700 overflow-auto p-8 flex justify-center rounded-xl border border-slate-600 relative shadow-inner">
         {selectedStudent ? (
-            // WRAPPER FOR ALL PAGES
             <div id="print-area-all" className="transform scale-[0.6] md:scale-[0.85] origin-top transition-transform">
                 
                 {/* ================= SHEET 1: COVER ================= */}
@@ -346,7 +334,6 @@ const Cetak: React.FC = () => {
                     </table>
 
                     <div className="mt-8 flex justify-between items-end">
-                         {/* Photo */}
                          <div className="w-32 flex flex-col items-center ml-8">
                             <div className="w-28 h-36 border-2 border-dashed border-slate-400 flex items-center justify-center bg-slate-50 overflow-hidden relative shadow-sm">
                                 {selectedStudent.photoUrl ? (
@@ -398,10 +385,10 @@ const Cetak: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* I. CAPAIAN PEMBELAJARAN (INTRAKURIKULER) */}
+                    {/* I. CAPAIAN PEMBELAJARAN (DYNAMIC CATEGORIES) */}
                     <h3 className="text-sm font-bold text-slate-900 uppercase mb-2">I. Capaian Pembelajaran</h3>
                     <div className="space-y-6 mb-6">
-                        {TP_CATEGORIES.map(category => {
+                        {activeCategories.map(category => {
                             const catTps = tps.filter(t => t.category === category && String(t.classId) === String(selectedStudent.classId));
                             if (catTps.length === 0) return null;
 
@@ -438,7 +425,6 @@ const Cetak: React.FC = () => {
                                         </tbody>
                                     </table>
                                     
-                                    {/* Deskripsi Box (PLAIN TEXT RENDERER) */}
                                     <div className="border border-black p-3 bg-white shadow-sm rounded-lg mt-2 relative z-0">
                                         <p className="text-[10px] font-black text-slate-500 mb-1 tracking-widest uppercase flex items-center gap-1">
                                             <span className="w-1.5 h-1.5 rounded-full bg-slate-500 inline-block"></span>
@@ -479,7 +465,6 @@ const Cetak: React.FC = () => {
                                             <tr key={c.id} className="even:bg-slate-50">
                                                 <td className="align-top font-bold text-[11px]">{c.subDimension}</td>
                                                 <td className="align-top text-justify text-[11px] leading-tight relative">
-                                                    {/* Plain Text with whitespace wrap */}
                                                     <div className="whitespace-pre-wrap">{desc}</div>
                                                     {score && (
                                                         <div className="mt-1 text-right">
@@ -498,14 +483,11 @@ const Cetak: React.FC = () => {
                     {/* III. CATATAN & IV. KEHADIRAN */}
                     <div className="flex gap-4 mb-4" style={{ pageBreakInside: 'avoid' }}>
                          <div className="flex-1">
-                             {/* CATATAN */}
                              <div>
                                  <h3 className="text-xs font-bold text-slate-900 uppercase mb-1">III. Catatan Guru</h3>
                                  <div className="border border-black p-2 text-[11px] text-justify min-h-[110px] rounded-lg bg-white whitespace-pre-wrap">{studentNote?.note || "-"}</div>
                              </div>
                          </div>
-
-                         {/* KEHADIRAN */}
                          <div className="w-[30%]">
                              <h3 className="text-xs font-bold text-slate-900 uppercase mb-1">IV. Kehadiran</h3>
                              <table className="report-table">
@@ -533,7 +515,6 @@ const Cetak: React.FC = () => {
                             <p>{settings.reportPlace}, {settings.reportDate}</p>
                             <p>Wali Kelas,</p>
                             <div className="h-20"></div>
-                            {/* FIX: Prioritaskan Nama Guru dari Data Kelas */}
                             <p className="font-bold underline whitespace-nowrap">
                                 {studentClass?.teacherName ? studentClass.teacherName : settings.teacher}
                             </p>

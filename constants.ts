@@ -28,6 +28,14 @@ export const GEMINI_API_KEY = cleanEnv(viteAiKey || procAiKey);
 // --- KONFIGURASI ASET ---
 export const DEFAULT_LOGO_URL = "https://wohhrumqbuwhfulhrlfy.supabase.co/storage/v1/object/public/images/Logo%20Kusuma-new1.png";
 
+// Kategori Penilaian TPA DEFAULT
+export const TP_CATEGORIES = [
+    TPType.QURAN, 
+    TPType.HAFALAN, 
+    TPType.DINUL_ISLAM,
+    TPType.PRAKTIK
+];
+
 // -------------------------------------
 
 export const INITIAL_SETTINGS: SchoolSettings = {
@@ -52,16 +60,10 @@ export const INITIAL_SETTINGS: SchoolSettings = {
   appLogoUrl: DEFAULT_LOGO_URL, 
   reportLogoUrl: DEFAULT_LOGO_URL, 
   aiProvider: 'groq',
-  aiApiKey: ""
+  aiApiKey: "",
+  // Defaultkan kategori ke nilai standar jika belum ada di DB
+  assessmentCategories: TP_CATEGORIES 
 };
-
-// Kategori Penilaian TPA
-export const TP_CATEGORIES = [
-    TPType.QURAN, 
-    TPType.HAFALAN, 
-    TPType.DINUL_ISLAM,
-    TPType.PRAKTIK
-];
 
 export const LEVEL_LABELS = {
   1: "Mulai Lancar (Perlu Bimbingan)",
