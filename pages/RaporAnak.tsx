@@ -16,6 +16,11 @@ const RaporAnak: React.FC = () => {
   // Gunakan Report Logo, fallback ke logo lama, fallback ke default
   const reportLogo = settings.reportLogoUrl || settings.logoUrl || DEFAULT_LOGO_URL;
 
+  // Gunakan Kategori Dinamis dari Settings, Fallback ke Konstanta Default
+  const activeCategories = settings.assessmentCategories && settings.assessmentCategories.length > 0 
+    ? settings.assessmentCategories 
+    : TP_CATEGORIES;
+
   // Filter Data for Selected Student
   const filteredStudents = selectedClassId 
     ? students.filter(s => String(s.classId) === String(selectedClassId))
@@ -240,7 +245,7 @@ const RaporAnak: React.FC = () => {
                 </div>
 
                 {/* ================= SHEET 3: RAPOR ISI ================= */}
-                <div className="sheet bg-white mb-8 mx-auto" style={{ width: '210mm', minHeight: '297mm', padding: '15mm' }}>
+                <div className="sheet bg-white mb-8 mx-auto" style={{ width: '210mm', minHeight: '297mm', padding: '20mm' }}>
                     <div className="text-center mb-6">
                         <h2 className="text-md font-bold uppercase leading-tight">
                             LAPORAN HASIL PERKEMBANGAN PESERTA DIDIK<br/>
@@ -272,7 +277,7 @@ const RaporAnak: React.FC = () => {
                     {/* I. CAPAIAN PEMBELAJARAN (INTRAKURIKULER) */}
                     <h3 className="text-sm font-bold text-slate-900 uppercase mb-2">I. Capaian Pembelajaran</h3>
                     <div className="space-y-6 mb-6">
-                        {TP_CATEGORIES.map(category => {
+                        {activeCategories.map(category => {
                             const catTps = tps.filter(t => t.category === category && String(t.classId) === String(selectedStudent.classId));
                             if (catTps.length === 0) return null;
 
@@ -281,14 +286,14 @@ const RaporAnak: React.FC = () => {
                             
                             return (
                                 <div key={category} className="mb-4">
-                                    <div className="font-bold text-xs uppercase mb-1 pl-2 border-l-4 border-slate-800 tracking-wide">
+                                    <div className="font-bold text-xs uppercase mb-1 pl-2 border-l-4 border-slate-800 tracking-wide" style={{ pageBreakAfter: 'avoid' }}>
                                         {category}
                                     </div>
                                     <table className="report-table">
                                         <thead>
                                             <tr>
-                                                <th className="w-[35%]">Tujuan Pembelajaran</th>
-                                                <th className="w-[45%]">Aktivitas</th>
+                                                <th className="w-[50%]">Tujuan Pembelajaran</th>
+                                                <th className="w-[30%]">Aktivitas</th>
                                                 <th className="w-[20%]">DIMENSI KEMANDIRIAN</th>
                                             </tr>
                                         </thead>
@@ -298,8 +303,8 @@ const RaporAnak: React.FC = () => {
                                                 const score = ass?.score || 0;
                                                 return (
                                                     <tr key={tp.id} className="even:bg-slate-50">
-                                                        <td className="align-top text-[11px] leading-snug">{tp.description}</td>
-                                                        <td className="align-top text-[11px] text-slate-600 italic leading-snug">{tp.activity}</td>
+                                                        <td className="align-top text-[13px] leading-snug">{tp.description}</td>
+                                                        <td className="align-top text-[13px] text-slate-600 italic leading-snug">{tp.activity}</td>
                                                         <td className="align-middle text-center">
                                                             {getBadgeContent(score)}
                                                         </td>
@@ -309,13 +314,13 @@ const RaporAnak: React.FC = () => {
                                         </tbody>
                                     </table>
                                     
-                                    {/* Deskripsi Box */}
-                                    <div className="border border-black p-3 bg-white shadow-sm rounded-lg mt-2 relative z-0">
+                                    {/* Deskripsi Box - Dengan CLASS BARU 'description-box' */}
+                                    <div className="description-box mt-2 relative z-0">
                                         <p className="text-[10px] font-black text-slate-500 mb-1 tracking-widest uppercase flex items-center gap-1">
                                             <span className="w-1.5 h-1.5 rounded-full bg-slate-500 inline-block"></span>
                                             Deskripsi Capaian
                                         </p>
-                                        <div className="text-justify text-[11px] leading-relaxed text-slate-800 font-medium whitespace-pre-wrap">
+                                        <div className="text-justify text-[14px] leading-relaxed text-slate-800 font-medium whitespace-pre-wrap">
                                             {catResult?.generatedDescription || "-"}
                                         </div>
                                     </div>
@@ -326,7 +331,7 @@ const RaporAnak: React.FC = () => {
 
                     {/* II. KOKURIKULER (P5) */}
                     {studentP5Criteria.length > 0 && (
-                        <div className="mb-6">
+                        <div className="mb-6 break-inside-avoid">
                             <h3 className="text-sm font-bold text-slate-900 uppercase mb-2">II. KOKURIKULER</h3>
                             <table className="report-table">
                                 <thead>
@@ -348,9 +353,10 @@ const RaporAnak: React.FC = () => {
                                         }
                                         return (
                                             <tr key={c.id} className="even:bg-slate-50">
-                                                <td className="align-top font-bold text-[11px]">{c.subDimension}</td>
-                                                <td className="align-top text-justify text-[11px] leading-tight relative">
-                                                    <div className="whitespace-pre-wrap">{desc}</div>
+                                                <td className="align-top font-bold text-[13px]">{c.subDimension}</td>
+                                                <td className="align-top text-justify text-[13px] leading-tight relative">
+                                                    {/* Plain Text with whitespace wrap */}
+                                                    <div className="whitespace-pre-wrap text-[14px]">{desc}</div>
                                                     {score && (
                                                         <div className="mt-1 text-right">
                                                            {getBadgeContent(score)}
@@ -365,55 +371,60 @@ const RaporAnak: React.FC = () => {
                         </div>
                     )}
 
-                    {/* III. CATATAN & IV. KEHADIRAN */}
-                    <div className="flex gap-4 mb-4">
-                         <div className="flex-1">
-                             {/* CATATAN */}
-                             <div>
-                                 <h3 className="text-xs font-bold text-slate-900 uppercase mb-1">III. Catatan Guru</h3>
-                                 <div className="border border-black p-2 text-[11px] text-justify min-h-[110px] rounded-lg bg-white whitespace-pre-wrap">{studentNote?.note || "-"}</div>
+                    {/* III. CATATAN & IV. KEHADIRAN & SIGNATURES (WRAPPER) */}
+                    <div className="break-inside-avoid">
+                        <div className="flex gap-4 mb-4">
+                             <div className="flex-1">
+                                 {/* CATATAN */}
+                                 <div>
+                                     <h3 className="text-xs font-bold text-slate-900 uppercase mb-1">III. Catatan Guru</h3>
+                                     <div className="border border-black p-2 text-[14px] text-justify min-h-[110px] rounded-lg bg-white whitespace-pre-wrap">{studentNote?.note || "-"}</div>
+                                 </div>
                              </div>
-                         </div>
 
-                         {/* KEHADIRAN */}
-                         <div className="w-[30%]">
-                             <h3 className="text-xs font-bold text-slate-900 uppercase mb-1">IV. Kehadiran</h3>
-                             <table className="report-table">
-                                <thead>
-                                    <tr><th className="text-left">Keterangan</th><th className="text-center">Jumlah</th></tr>
-                                </thead>
-                                <tbody>
-                                    <tr><td>Sakit</td><td className="text-center font-bold">{studentAttendance.sick}</td></tr>
-                                    <tr><td>Izin</td><td className="text-center font-bold">{studentAttendance.permission}</td></tr>
-                                    <tr><td>Tanpa Ket.</td><td className="text-center font-bold">{studentAttendance.alpha}</td></tr>
-                                </tbody>
-                             </table>
-                         </div>
-                    </div>
+                             {/* KEHADIRAN */}
+                             <div className="w-[30%]">
+                                 <h3 className="text-xs font-bold text-slate-900 uppercase mb-1">IV. Kehadiran</h3>
+                                 <table className="report-table">
+                                    <thead>
+                                        <tr><th className="text-left">Keterangan</th><th className="text-center">Jumlah</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td>Sakit</td><td className="text-center font-bold">{studentAttendance.sick}</td></tr>
+                                        <tr><td>Izin</td><td className="text-center font-bold">{studentAttendance.permission}</td></tr>
+                                        <tr><td>Tanpa Ket.</td><td className="text-center font-bold">{studentAttendance.alpha}</td></tr>
+                                    </tbody>
+                                 </table>
+                             </div>
+                        </div>
 
-                    {/* SIGNATURES */}
-                    <div className="flex justify-between text-xs mt-8 px-4">
-                        <div className="text-center w-48">
-                            <p>Mengetahui,</p>
-                            <p className="font-bold">Orang Tua/Wali,</p>
-                            <div className="h-20"></div>
-                            <p className="border-b border-black inline-block w-full mx-auto"></p>
+                        {/* SIGNATURES */}
+                        <div className="mt-4">
+                            <div className="flex justify-between text-xs mt-8 px-4">
+                                <div className="text-center w-48">
+                                    <p>Mengetahui,</p>
+                                    <p className="font-bold">Orang Tua/Wali,</p>
+                                    <div className="h-20"></div>
+                                    <p className="border-b border-black inline-block w-full mx-auto"></p>
+                                </div>
+                                <div className="text-center min-w-[220px]">
+                                    <p>{settings.reportPlace}, {settings.reportDate}</p>
+                                    <p>Wali Kelas,</p>
+                                    <div className="h-20"></div>
+                                    {/* FIX: Prioritaskan Nama Guru dari Data Kelas */}
+                                    <p className="font-bold underline whitespace-nowrap">
+                                        {studentClass?.teacherName ? studentClass.teacherName : settings.teacher}
+                                    </p>
+                                    <p>NUPTK: {studentClass?.nuptk ? studentClass.nuptk : '-'}</p>
+                                </div>
+                            </div>
+                             <div className="mt-4 text-center text-xs">
+                                <p>Mengetahui,</p>
+                                <p>Kepala Sekolah</p>
+                                <div className="h-20"></div>
+                                <p className="font-bold underline">{settings.headmaster}</p>
+                            </div>
                         </div>
-                        <div className="text-center min-w-[220px]">
-                            <p>{settings.reportPlace}, {settings.reportDate}</p>
-                            <p>Wali Kelas,</p>
-                            <div className="h-20"></div>
-                            <p className="font-bold underline whitespace-nowrap">
-                                {studentClass?.teacherName ? studentClass.teacherName : settings.teacher}
-                            </p>
-                            <p>NUPTK: {studentClass?.nuptk ? studentClass.nuptk : '-'}</p>
-                        </div>
-                    </div>
-                     <div className="mt-4 text-center text-xs">
-                        <p>Mengetahui,</p>
-                        <p>Kepala Sekolah</p>
-                        <div className="h-20"></div>
-                        <p className="font-bold underline">{settings.headmaster}</p>
                     </div>
                 </div>
             </div>
