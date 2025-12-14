@@ -164,7 +164,7 @@ const RaporAnak: React.FC = () => {
                             </h1>
                             <h2 className="text-xl font-bold uppercase text-slate-700">
                                 Capaian Perkembangan Peserta Didik<br/>
-                                Pendidikan Anak Usia Dini (PAUD)
+                                TAMAN PENITIPAN ANAK (TPA)
                             </h2>
                         </div>
 
@@ -182,9 +182,10 @@ const RaporAnak: React.FC = () => {
 
                         <div className="mb-10 w-full border-t-2 border-slate-200 pt-8 text-center">
                             <h3 className="text-xl font-bold uppercase mb-1">{settings.name}</h3>
+                            <h3 className="text-xl font-bold uppercase mb-1"> NPSN: {settings.npsn}</h3>
                             <p className="text-sm font-medium text-slate-600 uppercase">
-                                KEMENTERIAN PENDIDIKAN DASAR DAN MENENGAH<br/>
-                                REPUBLIK INDONESIA
+                                {settings.address}, {settings.village}, {settings.district}<br/>
+                                {settings.regency}, {settings.province} {settings.postalCode}<br/>
                             </p>
                         </div>
                      </div>
@@ -249,7 +250,7 @@ const RaporAnak: React.FC = () => {
                     <div className="text-center mb-6">
                         <h2 className="text-md font-bold uppercase leading-tight">
                             LAPORAN HASIL PERKEMBANGAN PESERTA DIDIK<br/>
-                            PENDIDIKAN ANAK USIA DINI (PAUD)
+                            TAMAN PENITIPAN ANAK (TPA)
                         </h2>
                     </div>
 
@@ -292,8 +293,8 @@ const RaporAnak: React.FC = () => {
                                     <table className="report-table">
                                         <thead>
                                             <tr>
-                                                <th className="w-[50%]">Tujuan Pembelajaran</th>
-                                                <th className="w-[30%]">Aktivitas</th>
+                                                <th className="w-[40%]">Tujuan Pembelajaran</th>
+                                                <th className="w-[40%]">Aktivitas</th>
                                                 <th className="w-[20%]">DIMENSI KEMANDIRIAN</th>
                                             </tr>
                                         </thead>
