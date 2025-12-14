@@ -117,7 +117,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* --- KARTU SELAMAT DATANG --- */}
-      <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden mb-8">
+      <div className="bg-gradient-to-r from-pink-500 to-pink-700 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden mb-8">
         <div className="absolute top-0 right-0 p-4 opacity-10 transform translate-x-10 -translate-y-10">
             <GraduationCap size={200} />
         </div>
