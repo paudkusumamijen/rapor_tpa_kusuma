@@ -100,9 +100,12 @@ export const generateCategoryDescription = async (
   provider: 'gemini' | 'groq' = 'groq'
 ): Promise<string> => {
   
+  // LOGIC FIX: Prioritize passed Key (from DB) -> Fallback to Env Key (GEMINI_API_KEY)
+  const effectiveKey = apiKey || GEMINI_API_KEY;
+
   // Fallback ke Template Manual jika API Key tidak ada untuk Groq
-  if (provider === 'groq' && !apiKey) {
-      console.warn("API Key not found, using offline template.");
+  if (provider === 'groq' && !effectiveKey) {
+      console.warn("API Key not found (DB or Env), using offline template.");
       return generateTemplateDescription(studentName, category, assessmentsData);
   }
   
@@ -141,7 +144,7 @@ export const generateCategoryDescription = async (
   try {
     if (provider === 'groq') {
         // --- USE GROQ API ---
-        return await callGroqApi(apiKey, prompt);
+        return await callGroqApi(effectiveKey, prompt);
     } else {
         // --- USE GOOGLE GEMINI API ---
         const ai = getGeminiInstance();
@@ -165,7 +168,9 @@ export const generateP5Description = async (
   provider: 'gemini' | 'groq' = 'groq'
 ): Promise<string> => {
   
-  if (provider === 'groq' && !apiKey) {
+  const effectiveKey = apiKey || GEMINI_API_KEY;
+
+  if (provider === 'groq' && !effectiveKey) {
      return `Ananda ${studentName} menunjukkan perkembangan dalam ${subDimension}. ${keywords}`;
   }
 
@@ -193,7 +198,7 @@ export const generateP5Description = async (
   try {
     if (provider === 'groq') {
         // --- USE GROQ API ---
-        return await callGroqApi(apiKey, prompt);
+        return await callGroqApi(effectiveKey, prompt);
     } else {
         // --- USE GOOGLE GEMINI API ---
         const ai = getGeminiInstance();

@@ -7,8 +7,29 @@ let supabase: any = null;
 
 // Helper to get configuration
 const getSupabaseConfig = () => {
-  const url = SUPABASE_URL || localStorage.getItem('supabase_url');
-  const key = SUPABASE_KEY || localStorage.getItem('supabase_key');
+  const envUrl = SUPABASE_URL;
+  const envKey = SUPABASE_KEY;
+  const localUrl = localStorage.getItem('supabase_url');
+  const localKey = localStorage.getItem('supabase_key');
+  
+  // Prioritas: LocalStorage (jika user manual input) -> Env Var
+  // TAPI, kita cek validitasnya
+  let url = localUrl || envUrl;
+  let key = localKey || envKey;
+
+  // Bersihkan URL
+  if (url) {
+      url = url.trim();
+      // Pastikan ada protocol
+      if (!url.startsWith('http')) {
+          url = `https://${url}`;
+      }
+      // Hapus slash di akhir
+      if (url.endsWith('/')) {
+          url = url.slice(0, -1);
+      }
+  }
+
   return { url, key };
 };
 
@@ -19,12 +40,19 @@ export const resetSupabaseClient = () => {
 
 // Initialize Supabase if config exists
 const initSupabase = () => {
+  if (supabase) return supabase;
+
   const { url, key } = getSupabaseConfig();
-  if (url && key && !supabase) {
+  
+  if (url && key && url !== "https://" && key !== "undefined") {
     try {
-      supabase = createClient(url, key);
+      supabase = createClient(url, key, {
+          auth: { persistSession: false }, // Tidak perlu auth session untuk public table
+          db: { schema: 'public' }
+      });
     } catch (e) {
-      console.error("Invalid Supabase Config", e);
+      console.error("Invalid Supabase Config Initialization", e);
+      return null;
     }
   }
   return supabase;
@@ -45,7 +73,6 @@ const mapKeys = (obj: any, mapper: (k: string) => string) => {
 };
 
 // Helper: Unpack Logo JSON from legacy 'logo_url' column
-// Ini mengatasi masalah schema DB yang belum punya kolom app_logo_url/report_logo_url
 const unpackSettingsLogos = (settingsData: any) => {
   if (!settingsData) return null;
   const processed = { ...settingsData };
@@ -76,7 +103,8 @@ export const sheetService = {
     const sb = initSupabase();
     if (!sb) return null;
     try {
-      const { data } = await sb.from('settings').select('*').limit(1).maybeSingle();
+      const { data, error } = await sb.from('settings').select('*').limit(1).maybeSingle();
+      if (error) throw error;
       const camelData = data ? mapKeys(data, toCamelCase) : null;
       return unpackSettingsLogos(camelData);
     } catch (error) {
@@ -124,8 +152,9 @@ export const sheetService = {
           settings: settings ? unpackSettingsLogos(mapKeys(settings, toCamelCase)) : undefined 
       } as AppState;
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Supabase Fetch Error:", error);
+      // Don't throw here, just return null so UI handles offline mode gracefully
       return null;
     }
   },
@@ -144,8 +173,6 @@ export const sheetService = {
   },
   
   async saveSettings(data: any) {
-    // Settings is a single row, ensure ID exists or upsert
-    // FIX: Pack appLogoUrl and reportLogoUrl into logoUrl JSON because DB schema might lack those columns
     const payload = { ...data, id: 'global_settings' };
     
     // Create JSON container for logos
@@ -155,42 +182,31 @@ export const sheetService = {
         report: data.reportLogoUrl
     };
     
-    // Use logoUrl as storage container
     payload.logoUrl = JSON.stringify(logoPackage);
-    
-    // Remove fields that cause "Column not found" error
     delete payload.appLogoUrl;
     delete payload.reportLogoUrl;
 
     return this.supabaseOp('upsert', 'settings', payload);
   },
 
-  // --- DATABASE MANAGEMENT (BACKUP/RESTORE/RESET) ---
-
+  // --- DATABASE MANAGEMENT ---
   async clearDatabase(keepTPs: boolean = false): Promise<ApiResponse> {
       const sb = initSupabase();
       if (!sb) return { status: 'error', message: 'No connection' };
 
       try {
-          // DELETE ORDER MATTERS (Children first)
           const tablesToDelete = [
               'assessments', 'category_results', 'p5_assessments', 
               'reflections', 'reflection_answers', 'notes', 'attendance',
-              'students', // Parents of assessments
-              'p5_criteria', 'reflection_questions' // Linked to classes
+              'students', 
+              'p5_criteria', 'reflection_questions' 
           ];
 
-          if (!keepTPs) {
-              tablesToDelete.push('tps');
-          }
-
-          // Classes deleted last as they are parents to students/tps
+          if (!keepTPs) tablesToDelete.push('tps');
           tablesToDelete.push('classes');
           
-          // NOTE: We do NOT delete 'users' or 'settings' on system reset to prevent lockout
-
           for (const table of tablesToDelete) {
-              const { error } = await sb.from(table).delete().neq('id', '0'); // Delete all rows
+              const { error } = await sb.from(table).delete().neq('id', '0');
               if (error) throw error;
           }
 
@@ -205,27 +221,18 @@ export const sheetService = {
       if (!sb) return { status: 'error', message: 'No connection' };
 
       try {
-          // 1. Clear existing first to avoid conflicts
-          await this.clearDatabase(false); // Clear EVERYTHING including TPs
+          await this.clearDatabase(false);
 
-          // 2. Insert Settings
           if (data.settings) {
               const settingsPayload = { ...data.settings, id: 'global_settings' };
               await sb.from('settings').upsert(mapKeys(settingsPayload, toSnakeCase));
           }
 
-          // 3. Insert Parents (Classes)
           if (data.classes?.length) await sb.from('classes').upsert(mapKeys(data.classes, toSnakeCase));
-          
-          // 4. Insert Independent Children (TPs, P5Criteria) - IF array exists
           if (data.tps?.length) await sb.from('tps').upsert(mapKeys(data.tps, toSnakeCase));
           if (data.p5Criteria?.length) await sb.from('p5_criteria').upsert(mapKeys(data.p5Criteria, toSnakeCase));
           if (data.reflectionQuestions?.length) await sb.from('reflection_questions').upsert(mapKeys(data.reflectionQuestions, toSnakeCase));
-
-          // 5. Insert Students
           if (data.students?.length) await sb.from('students').upsert(mapKeys(data.students, toSnakeCase));
-
-          // 6. Insert Student Dependent Data
           if (data.assessments?.length) await sb.from('assessments').upsert(mapKeys(data.assessments, toSnakeCase));
           if (data.categoryResults?.length) await sb.from('category_results').upsert(mapKeys(data.categoryResults, toSnakeCase));
           if (data.p5Assessments?.length) await sb.from('p5_assessments').upsert(mapKeys(data.p5Assessments, toSnakeCase));
@@ -241,38 +248,27 @@ export const sheetService = {
       }
   },
 
-  // --- STORAGE OPERATION (NEW) ---
+  // --- STORAGE OPERATION ---
   async uploadImage(file: Blob, folder: 'students' | 'school', fileNameProp?: string): Promise<string | null> {
     const sb = initSupabase();
     if (!sb) return null;
 
     try {
-        // Generate Unique Filename
         const fileExt = file.type.split('/')[1] || 'jpg';
         const uniqueName = fileNameProp || `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
         const filePath = `${folder}/${uniqueName}`;
 
-        // 1. Upload to 'images' bucket
         const { error: uploadError } = await sb.storage
             .from('images')
-            .upload(filePath, file, {
-                cacheControl: '3600',
-                upsert: true
-            });
+            .upload(filePath, file, { cacheControl: '3600', upsert: true });
 
         if (uploadError) throw uploadError;
 
-        // 2. Get Public URL
         const { data } = sb.storage.from('images').getPublicUrl(filePath);
         return data.publicUrl;
 
     } catch (error: any) {
-        // Handle RLS Policy errors gracefully
-        if (error.message && (error.message.includes("row-level security") || error.message.includes("violates"))) {
-             console.warn("Storage upload restricted by RLS (Supabase). Returning null to trigger fallback.");
-        } else {
-             console.error("Storage Upload Error:", error);
-        }
+        console.warn("Storage upload error (likely RLS)", error);
         return null;
     }
   },
@@ -280,17 +276,14 @@ export const sheetService = {
   // --- SUPABASE OPERATIONS ---
   async supabaseOp(op: 'insert'|'update'|'delete'|'upsert', collection: string, data: any): Promise<ApiResponse> {
     const sb = initSupabase();
-    if (!sb) return { status: 'error', message: 'Supabase client not initialized' };
-
-    // Convert Collection Name to Table Name (camelCase -> snake_case)
-    let tableName = toSnakeCase(collection);
-
-    // FIX: Manual override for TPs because toSnakeCase converts "TPs" incorrectly to "_t_ps"
-    if (collection === 'TPs') {
-        tableName = 'tps';
+    // Jika sb null, berarti config URL/Key kosong
+    if (!sb) {
+        return { status: 'error', message: 'Koneksi Database belum disetting (URL/Key kosong)' };
     }
+
+    let tableName = toSnakeCase(collection);
+    if (collection === 'TPs') tableName = 'tps';
     
-    // Convert Data Keys to snake_case
     const dbData = op === 'delete' ? null : mapKeys(data, toSnakeCase);
 
     try {
@@ -314,8 +307,12 @@ export const sheetService = {
         if (error) throw error;
         return { status: 'success' };
     } catch (e: any) {
-        console.error("Supabase Operation Error:", e);
-        return { status: 'error', message: e.message || "Database Error" };
+        // PERBAIKAN PESAN ERROR FETCH
+        let msg = e.message || "Database Error";
+        if (msg.includes("Failed to fetch")) {
+            msg = "Gagal terhubung ke Server Database (Failed to fetch). Periksa URL Database atau Koneksi Internet Anda.";
+        }
+        return { status: 'error', message: msg };
     }
   }
 };

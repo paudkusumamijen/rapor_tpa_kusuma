@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { SchoolSettings } from '../types';
-import { SUPABASE_URL, SUPABASE_KEY } from '../constants';
+import { SUPABASE_URL, SUPABASE_KEY, GEMINI_API_KEY } from '../constants';
 import { resetSupabaseClient, sheetService } from '../services/sheetService';
 import { Save, Database, RefreshCw, Upload, Image as ImageIcon, Trash2, Lock, Flame, CheckCircle2, Sparkles, Key, AlertCircle, Cpu, ShieldCheck, Edit, Loader2, Download, RefreshCcw, FileUp, Smartphone, Printer } from 'lucide-react';
 
@@ -28,8 +28,11 @@ const Pengaturan: React.FC = () => {
   // Cek apakah Database sudah terkonfigurasi (baik hardcode maupun localstorage)
   const isDbConfigured = isHardcodedSb || (!!sbUrl && !!sbKey);
 
-  // Cek apakah AI sudah disetting
-  const isAiConfigured = !!settings.aiApiKey;
+  // Cek apakah AI Key dari Env tersedia
+  const isEnvKeyAvailable = !!GEMINI_API_KEY;
+  // Cek apakah AI sudah disetting (baik via DB atau Env)
+  const isAiConfigured = !!settings.aiApiKey || isEnvKeyAvailable;
+  
   // Mode edit untuk AI (jika user ingin mengubah key yang sudah ada)
   const [isEditingAi, setIsEditingAi] = useState(false);
 
@@ -360,6 +363,11 @@ const Pengaturan: React.FC = () => {
                                          <p className="text-xs text-green-700 font-medium">
                                              Tipe Server: <span className="uppercase">{formData.aiProvider === 'gemini' ? 'Server A (Google)' : 'Server B (Groq)'}</span>
                                          </p>
+                                         {isEnvKeyAvailable && !formData.aiApiKey && (
+                                            <p className="text-[10px] text-teal-600 font-bold mt-1 flex items-center gap-1">
+                                                <CheckCircle2 size={10}/> Menggunakan Key dari Environment (Vercel)
+                                            </p>
+                                         )}
                                      </div>
                                  </div>
                                  <button 
@@ -391,7 +399,7 @@ const Pengaturan: React.FC = () => {
                                         onClick={() => setFormData(prev => ({...prev, aiProvider: 'groq'}))}
                                         className={`flex-1 py-2 px-3 rounded-lg border text-sm font-bold flex items-center justify-center gap-2 transition-all ${formData.aiProvider === 'groq' ? 'bg-orange-600 text-white border-orange-600 shadow-md' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
                                     >
-                                        <Flame size={16}/> Server B (Gratis)
+                                        <Flame size={16}/> Server B (Groq)
                                     </button>
                                     <button 
                                         onClick={() => setFormData(prev => ({...prev, aiProvider: 'gemini'}))}
@@ -410,12 +418,17 @@ const Pengaturan: React.FC = () => {
                                     <Key size={14} className="absolute left-3 top-3 text-slate-400"/>
                                     <input 
                                         className="w-full p-2 pl-9 border rounded bg-white text-slate-800 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none" 
-                                        placeholder="Masukkan kode lisensi..."
+                                        placeholder={isEnvKeyAvailable ? "Menggunakan API Key dari Environment Variable (Terdeteksi)" : "Masukkan kode lisensi manual..."}
                                         value={formData.aiApiKey || ''} 
                                         onChange={e => handleChange('aiApiKey', e.target.value)} 
                                         type="password"
                                     />
                                 </div>
+                                {isEnvKeyAvailable && !formData.aiApiKey && (
+                                    <p className="text-[10px] text-green-600 mt-1 ml-1 flex items-center gap-1">
+                                        <CheckCircle2 size={10}/> Menggunakan Default Key dari System Environment.
+                                    </p>
+                                )}
                             </div>
 
                             <div className="pt-2">

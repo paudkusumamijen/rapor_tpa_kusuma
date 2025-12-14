@@ -1,37 +1,29 @@
 import { SchoolSettings, TPType } from './types';
 
-// Helper untuk membaca process.env (Node.js / Create-React-App fallback)
-const getProcessEnv = (key: string) => {
-    try {
-        // @ts-ignore
-        return typeof process !== 'undefined' ? process.env[key] : undefined;
-    } catch (e) {
-        return undefined;
-    }
+// Helper untuk membersihkan Env Var
+const cleanEnv = (val: any) => {
+    if (!val) return "";
+    const str = String(val).trim();
+    // Cegah nilai string "undefined" yang kadang muncul dari build tools
+    if (str === "undefined" || str === "null") return "";
+    return str;
 };
 
 // --- KONFIGURASI DATABASE (SUPABASE) ---
-// PENTING: Di Vercel (Vite), kita WAJIB mengakses 'import.meta.env.VITE_...' secara LITERAl/LANGSUNG.
-// Jangan gunakan fungsi dinamis (seperti env[key]) karena Vite melakukan static replacement saat build.
+// Akses langsung ke import.meta.env untuk Vite
+// Kita gunakan temporary variable untuk menampung nilai agar aman
+const viteSbUrl = typeof import.meta !== 'undefined' && (import.meta as any).env ? (import.meta as any).env.VITE_SUPABASE_URL : "";
+const viteSbKey = typeof import.meta !== 'undefined' && (import.meta as any).env ? (import.meta as any).env.VITE_SUPABASE_KEY : "";
+const viteAiKey = typeof import.meta !== 'undefined' && (import.meta as any).env ? (import.meta as any).env.VITE_API_KEY : "";
 
-export const SUPABASE_URL = 
-    // @ts-ignore
-    (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_SUPABASE_URL) || 
-    getProcessEnv('VITE_SUPABASE_URL') || 
-    ""; 
+// Fallback ke process.env untuk environment non-Vite (opsional)
+const procSbUrl = typeof process !== 'undefined' && process.env ? process.env.REACT_APP_SUPABASE_URL : "";
+const procSbKey = typeof process !== 'undefined' && process.env ? process.env.REACT_APP_SUPABASE_KEY : "";
+const procAiKey = typeof process !== 'undefined' && process.env ? process.env.REACT_APP_API_KEY : "";
 
-export const SUPABASE_KEY = 
-    // @ts-ignore
-    (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_SUPABASE_KEY) || 
-    getProcessEnv('VITE_SUPABASE_KEY') || 
-    "";
-
-// --- KONFIGURASI AI (GEMINI) ---
-export const GEMINI_API_KEY = 
-    // @ts-ignore
-    (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) || 
-    getProcessEnv('VITE_API_KEY') || 
-    ""; 
+export const SUPABASE_URL = cleanEnv(viteSbUrl || procSbUrl);
+export const SUPABASE_KEY = cleanEnv(viteSbKey || procSbKey);
+export const GEMINI_API_KEY = cleanEnv(viteAiKey || procAiKey);
 
 // --- KONFIGURASI ASET ---
 export const DEFAULT_LOGO_URL = "https://wohhrumqbuwhfulhrlfy.supabase.co/storage/v1/object/public/images/Logo%20Kusuma-new1.png";
