@@ -12,8 +12,8 @@ const cleanEnv = (val: any) => {
 // --- KONFIGURASI DATABASE (SUPABASE) ---
 // Akses langsung ke import.meta.env untuk Vite
 // Kita gunakan temporary variable untuk menampung nilai agar aman
-const viteSbUrl = typeof import.meta !== 'undefined' && (import.meta as any).env ? (import.meta as any).env.VITE_SUPABASE_URL : "";
-const viteSbKey = typeof import.meta !== 'undefined' && (import.meta as any).env ? (import.meta as any).env.VITE_SUPABASE_KEY : "";
+const viteSbUrl = typeof import.meta !== 'undefined' && (import.meta as any).env ? (import.meta as any).env.VITE_SUPABASE_URL : "https://rszvibqquuutpgpexocd.supabase.co";
+const viteSbKey = typeof import.meta !== 'undefined' && (import.meta as any).env ? (import.meta as any).env.VITE_SUPABASE_KEY : "sb_publishable_LRcEPf0GozmfoKa7iGgWWA__X0DFilB";
 const viteAiKey = typeof import.meta !== 'undefined' && (import.meta as any).env ? (import.meta as any).env.VITE_API_KEY : "";
 
 // Fallback ke process.env untuk environment non-Vite (opsional)

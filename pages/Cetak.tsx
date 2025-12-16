@@ -462,7 +462,7 @@ const Cetak: React.FC = () => {
                         })}
                     </div>
 
-                    {/* II. KOKURIKULER (P5) */}
+                    {/* II. KOKURIKULER */}
                     {studentP5Criteria.length > 0 && (
                         <div className="mb-6 break-inside-avoid">
                             <h3 className="text-sm font-bold text-slate-900 uppercase mb-2">II. KOKURIKULER</h3>

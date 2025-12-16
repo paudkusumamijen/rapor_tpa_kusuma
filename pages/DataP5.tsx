@@ -67,8 +67,7 @@ const DataP5: React.FC = () => {
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-3">
              <Star className="text-orange-500" size={28} />
-             {/* JUDUL DIKEMBALIKAN */}
-             <h1 className="text-2xl font-bold text-slate-800">Data Kokulikuler (P5)</h1>
+             <h1 className="text-2xl font-bold text-slate-800">Data Kokurikuler</h1>
         </div>
       </div>
 

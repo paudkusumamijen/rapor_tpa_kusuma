@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { useLocation } from 'react-router-dom';
 import { AssessmentLevel, TPType } from '../types';
 import { TP_CATEGORIES } from '../constants';
 import { generateCategoryDescription } from '../services/geminiService';
-import { Save, Loader2, Sparkles, Filter, Edit3 } from 'lucide-react';
+import { Save, Loader2, Sparkles, Filter, Edit3, AlertCircle, CheckCircle } from 'lucide-react';
 
 // Fungsi helper untuk membersihkan tag HTML dari data lama (hasil Quill) agar rapi di Textarea
 const cleanHtml = (html: string) => {
@@ -16,6 +17,7 @@ const cleanHtml = (html: string) => {
 
 const InputNilai: React.FC = () => {
   const { students, classes, tps, assessments, categoryResults, upsertAssessment, upsertCategoryResult, settings } = useApp();
+  const location = useLocation(); // Hook untuk terima state navigasi
   
   // Use Dynamic Categories from Settings
   const activeCategories = settings.assessmentCategories && settings.assessmentCategories.length > 0 
@@ -35,12 +37,25 @@ const InputNilai: React.FC = () => {
       }
   }, [activeCategories]);
 
+  // --- HANDLE NAVIGATION STATE (DEEP LINKING) ---
+  useEffect(() => {
+      if (location.state) {
+          const { classId, studentId } = location.state as { classId: string; studentId: string };
+          if (classId) setSelectedClassId(classId);
+          if (studentId) setSelectedStudentId(studentId);
+          // Clear history state agar tidak reset saat refresh (opsional, tp baik utk UX)
+          window.history.replaceState({}, document.title);
+      }
+  }, []);
+
   // State Lokal untuk menampung nilai sementara sebelum disimpan
   const [tempScores, setTempScores] = useState<Record<string, AssessmentLevel>>({});
   
   const [teacherKeywords, setTeacherKeywords] = useState('');
   const [finalDescription, setFinalDescription] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // State untuk loading simpan
+  const [showToast, setShowToast] = useState(false); // State untuk notifikasi sukses
 
   const filteredStudents = selectedClassId 
     ? students.filter(s => String(s.classId) === String(selectedClassId)) 
@@ -74,6 +89,14 @@ const InputNilai: React.FC = () => {
         }
     }
   }, [selectedStudentId, activeCategory, assessments, categoryResults]); 
+
+  // Hide toast after 3 seconds
+  useEffect(() => {
+      if (showToast) {
+          const timer = setTimeout(() => setShowToast(false), 3000);
+          return () => clearTimeout(timer);
+      }
+  }, [showToast]);
 
   const handleScoreChange = (tpId: string, score: AssessmentLevel) => {
       setTempScores(prev => ({ ...prev, [tpId]: score }));
@@ -138,38 +161,74 @@ const InputNilai: React.FC = () => {
   const handleSaveAll = async () => {
       if (!selectedStudentId) return;
 
-      for (const tp of categoryTps) {
-          const score = tempScores[tp.id];
-          if (score) {
-              await upsertAssessment({
-                  id: `${selectedStudentId}-${tp.id}`,
+      // 1. VALIDASI: Cek apakah semua TP sudah dinilai
+      const incompleteTPs = categoryTps.filter(tp => !tempScores[tp.id]);
+      if (incompleteTPs.length > 0) {
+          alert(`Penilaian belum lengkap!\n\nMasih ada ${incompleteTPs.length} Tujuan Pembelajaran (TP) yang belum dinilai. Harap lengkapi semua nilai.`);
+          return;
+      }
+
+      // 2. VALIDASI: Cek apakah deskripsi sudah ada
+      if (!finalDescription || finalDescription.trim().length === 0) {
+          alert("Penilaian belum lengkap!\n\nDeskripsi Narasi Rapor masih kosong. Silakan gunakan tombol 'Susun Narasi Otomatis' atau ketik manual.");
+          return;
+      }
+
+      setIsSaving(true);
+
+      try {
+          // Simpan Nilai TP satu per satu
+          for (const tp of categoryTps) {
+              const score = tempScores[tp.id];
+              if (score) {
+                  await upsertAssessment({
+                      id: `${selectedStudentId}-${tp.id}`,
+                      studentId: selectedStudentId,
+                      tpId: tp.id,
+                      score: score,
+                      semester: settings.semester,
+                      academicYear: settings.academicYear
+                  });
+              }
+          }
+
+          // Simpan Deskripsi Akhir
+          if (finalDescription) {
+              await upsertCategoryResult({
+                  id: `${selectedStudentId}-${activeCategory}`,
                   studentId: selectedStudentId,
-                  tpId: tp.id,
-                  score: score,
+                  category: activeCategory,
+                  teacherNote: teacherKeywords,
+                  generatedDescription: finalDescription,
                   semester: settings.semester,
                   academicYear: settings.academicYear
               });
           }
-      }
 
-      if (finalDescription) {
-          await upsertCategoryResult({
-              id: `${selectedStudentId}-${activeCategory}`,
-              studentId: selectedStudentId,
-              category: activeCategory,
-              teacherNote: teacherKeywords,
-              generatedDescription: finalDescription,
-              semester: settings.semester,
-              academicYear: settings.academicYear
-          });
+          // Tampilkan Notifikasi Sukses via Toast
+          setShowToast(true);
+      } catch (error) {
+          alert("Terjadi kesalahan saat menyimpan data. Silakan coba lagi.");
+          console.error(error);
+      } finally {
+          setIsSaving(false);
       }
-
-      alert("Data Penilaian & Deskripsi berhasil disimpan!");
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
       <h1 className="text-2xl font-bold text-slate-800 mb-4">Input Nilai & Deskripsi</h1>
+
+      {/* TOAST NOTIFICATION */}
+      {showToast && (
+          <div className="fixed top-20 right-4 z-50 bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right-10 duration-300">
+              <CheckCircle size={24} className="text-green-200" />
+              <div>
+                  <h4 className="font-bold text-lg">Berhasil Disimpan!</h4>
+                  <p className="text-green-100 text-sm">Nilai dan deskripsi Intrakurikuler tersimpan.</p>
+              </div>
+          </div>
+      )}
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -219,6 +278,17 @@ const InputNilai: React.FC = () => {
                     </div>
                 ) : (
                     <>
+                        {/* VALIDATION WARNING */}
+                        {Object.keys(tempScores).length < categoryTps.length && (
+                            <div className="mb-4 bg-orange-50 border border-orange-200 text-orange-800 px-4 py-3 rounded-lg flex items-start gap-2 text-sm animate-in fade-in">
+                                <AlertCircle size={18} className="mt-0.5 flex-shrink-0"/>
+                                <div>
+                                    <span className="font-bold">Perhatian:</span> Penilaian belum lengkap.
+                                    <p>Mohon isi nilai untuk semua {categoryTps.length} Tujuan Pembelajaran di bawah ini.</p>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="overflow-x-auto mb-8 border rounded-lg">
                             <table className="w-full text-sm text-left">
                                 <thead className="bg-slate-100 text-slate-700 uppercase font-bold text-xs">
@@ -233,12 +303,12 @@ const InputNilai: React.FC = () => {
                                         <tr key={tp.id} className="border-b hover:bg-slate-50">
                                             <td className="p-3 border-r align-top">{tp.description}</td>
                                             <td className="p-3 border-r align-top text-slate-500">{tp.activity}</td>
-                                            <td className="p-3 align-top">
+                                            <td className={`p-3 align-top ${!tempScores[tp.id] ? 'bg-red-50' : ''}`}>
                                                 <div className="flex flex-col sm:flex-row gap-2 justify-center">
                                                     {[1, 2, 3].map(val => (
                                                         <label key={val} className={`cursor-pointer px-3 py-2 rounded border text-xs font-bold text-center flex-1 transition-all ${
                                                             tempScores[tp.id] === val 
-                                                            ? 'bg-indigo-100 border-indigo-500 text-indigo-700' 
+                                                            ? 'bg-indigo-100 border-indigo-500 text-indigo-700 shadow-sm' 
                                                             : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
                                                         }`}>
                                                             <input 
@@ -253,6 +323,7 @@ const InputNilai: React.FC = () => {
                                                         </label>
                                                     ))}
                                                 </div>
+                                                {!tempScores[tp.id] && <p className="text-[10px] text-red-500 text-center mt-1 font-bold">*Wajib Diisi</p>}
                                             </td>
                                         </tr>
                                     ))}
@@ -295,12 +366,15 @@ const InputNilai: React.FC = () => {
                                 </div>
 
                                 <div className="flex flex-col">
-                                    <label className="block text-sm font-bold text-slate-700 mb-2">Deskripsi Rapor</label>
+                                    <label className="block text-sm font-bold text-slate-700 mb-2 flex justify-between">
+                                        <span>Deskripsi Rapor <span className="text-red-500">*</span></span>
+                                        {!finalDescription && <span className="text-xs text-red-500 font-normal">Wajib diisi</span>}
+                                    </label>
                                     <div className="flex-1">
                                          <textarea 
                                             value={finalDescription} 
                                             onChange={(e) => setFinalDescription(e.target.value)} 
-                                            className="w-full p-3 border rounded-lg bg-white text-slate-800 h-64 focus:ring-2 focus:ring-teal-500 outline-none leading-relaxed resize-none text-sm"
+                                            className={`w-full p-3 border rounded-lg bg-white text-slate-800 h-64 focus:ring-2 focus:ring-teal-500 outline-none leading-relaxed resize-none text-sm ${!finalDescription ? 'border-red-300 ring-1 ring-red-100' : 'border-slate-300'}`}
                                             placeholder="Hasil deskripsi akan muncul di sini. Silakan edit teks sesuai kebutuhan..."
                                          />
                                          <p className="text-xs text-slate-400 mt-2 text-right">Tekan Enter untuk baris baru.</p>
@@ -312,9 +386,11 @@ const InputNilai: React.FC = () => {
                         <div className="mt-6 flex justify-end border-t pt-4">
                             <button 
                                 onClick={handleSaveAll}
-                                className="bg-teal-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-teal-700 flex items-center gap-2 transform active:scale-95 transition-all"
+                                disabled={isSaving}
+                                className="bg-teal-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-teal-700 flex items-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <Save size={20}/> Simpan Nilai & Deskripsi {activeCategory}
+                                {isSaving ? <Loader2 size={20} className="animate-spin" /> : <Save size={20}/>}
+                                {isSaving ? 'Menyimpan Data...' : `Simpan Nilai & Deskripsi ${activeCategory}`}
                             </button>
                         </div>
                     </>
